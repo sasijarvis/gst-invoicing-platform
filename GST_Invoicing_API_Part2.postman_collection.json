@@ -1,0 +1,875 @@
+{
+  "info": {
+    "name": "GST Invoicing API - Part 2 (Invoices, Payments, Recurring)",
+    "description": "Comprehensive API collection for GST Invoicing Platform - Part 2\n\nThis collection covers:\n- Invoice Management (CRUD, Items, GST Calculations)\n- Payment Management (Recording, Tracking, Outstanding)\n- Recurring Invoice Management (Subscription Billing)\n\nPrerequisites:\n1. Import Part 1 collection first\n2. Login using Part 1 to get access token\n3. Get customer and product IDs from Part 1\n4. Set the variables below with actual IDs\n\nDemo Credentials:\n- Email: demo@gstinvoicing.com\n- Password: demo123",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "Set this from Part 1 login response"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string",
+      "description": "Set this from Part 1 customer response"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string",
+      "description": "Set this from Part 1 product response"
+    },
+    {
+      "key": "invoiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "itemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paymentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recurringInvoiceId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Invoice Management",
+      "item": [
+        {
+          "name": "Get Invoice Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "stats"]
+            },
+            "description": "Get overview statistics of invoices and amounts"
+          }
+        },
+        {
+          "name": "Search Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/search?q=INV&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "INV"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Search invoices by invoice number, notes, customer name"
+          }
+        },
+        {
+          "name": "Get All Invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.length > 0) {",
+                  "        pm.collectionVariables.set('invoiceId', response.data[0].id);",
+                  "        console.log('Invoice ID set:', response.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get all invoices with pagination and automatically set first invoice ID"
+          }
+        },
+        {
+          "name": "Create Invoice with Multiple Items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('invoiceId', response.data.id);",
+                  "    console.log('Invoice ID set:', response.data.id);",
+                  "    if (response.data.items && response.data.items.length > 0) {",
+                  "        pm.collectionVariables.set('itemId', response.data.items[0].id);",
+                  "        console.log('Item ID set:', response.data.items[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"invoiceDate\": \"2024-01-15T00:00:00.000Z\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1,\n      \"description\": \"Primary service item\"\n    },\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 2,\n      \"rate\": 25000,\n      \"description\": \"Additional consulting hours\"\n    }\n  ],\n  \"discountAmount\": 5000,\n  \"notes\": \"Thank you for your business\",\n  \"terms\": \"Payment due within 30 days\",\n  \"status\": \"DRAFT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices"]
+            },
+            "description": "Create invoice with multiple items and automatically set invoice/item IDs"
+          }
+        },
+        {
+          "name": "Get Invoice by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}"]
+            },
+            "description": "Get invoice with full details including items and GST calculations"
+          }
+        },
+        {
+          "name": "Update Invoice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountAmount\": 2000,\n  \"notes\": \"Updated invoice with new discount\",\n  \"status\": \"SENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}"]
+            },
+            "description": "Update invoice details"
+          }
+        },
+        {
+          "name": "Get Invoice Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}", "items"]
+            },
+            "description": "Get all items for an invoice"
+          }
+        },
+        {
+          "name": "Add Item to Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 3,\n  \"rate\": 15000,\n  \"description\": \"Additional service item\",\n  \"discount\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}", "items"]
+            },
+            "description": "Add new item to existing invoice"
+          }
+        },
+        {
+          "name": "Update Invoice Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5,\n  \"rate\": 12000,\n  \"description\": \"Updated item description\",\n  \"discount\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}", "items", "{{itemId}}"]
+            },
+            "description": "Update existing invoice item"
+          }
+        },
+        {
+          "name": "Remove Invoice Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}", "items", "{{itemId}}"]
+            },
+            "description": "Remove item from invoice"
+          }
+        },
+        {
+          "name": "Delete Invoice",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{invoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "invoices", "{{invoiceId}}"]
+            },
+            "description": "Delete invoice (cannot delete if has payments)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Management",
+      "item": [
+        {
+          "name": "Get Payment Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "stats"]
+            },
+            "description": "Get overview statistics of payments and amounts"
+          }
+        },
+        {
+          "name": "Get Outstanding Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/outstanding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "outstanding"]
+            },
+            "description": "Get invoices with outstanding balances"
+          }
+        },
+        {
+          "name": "Search Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/search?q=bank&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "bank"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Search payments by reference, notes, customer name"
+          }
+        },
+        {
+          "name": "Get All Payments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.length > 0) {",
+                  "        pm.collectionVariables.set('paymentId', response.data[0].id);",
+                  "        console.log('Payment ID set:', response.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get all payments with pagination and automatically set first payment ID"
+          }
+        },
+        {
+          "name": "Record Payment (Full)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('paymentId', response.data.id);",
+                  "    console.log('Payment ID set:', response.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"amount\": 25000.00,\n  \"paymentMethod\": \"BANK_TRANSFER\",\n  \"reference\": \"TXN123456789\",\n  \"notes\": \"Full payment received via bank transfer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"]
+            },
+            "description": "Record a full payment and automatically set payment ID"
+          }
+        },
+        {
+          "name": "Record Payment (Partial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"amount\": 15000.00,\n  \"paymentMethod\": \"UPI\",\n  \"reference\": \"UPI-REF-12345\",\n  \"notes\": \"Partial payment via UPI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"]
+            },
+            "description": "Record a partial payment"
+          }
+        },
+        {
+          "name": "Record Bulk Payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"paymentDate\": \"2024-01-25T00:00:00.000Z\",\n  \"commonReference\": \"BULK-PAY-001\",\n  \"commonNotes\": \"Bulk payment for multiple invoices\",\n  \"payments\": [\n    {\n      \"invoiceId\": \"{{invoiceId}}\",\n      \"amount\": 20000.00,\n      \"paymentMethod\": \"BANK_TRANSFER\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "bulk"]
+            },
+            "description": "Record multiple payments at once"
+          }
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}"]
+            },
+            "description": "Get payment details with invoice and customer information"
+          }
+        },
+        {
+          "name": "Update Payment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"UPDATED-REF-12345\",\n  \"notes\": \"Updated payment reference and notes\",\n  \"paymentMethod\": \"CARD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}"]
+            },
+            "description": "Update payment details (cannot update amount)"
+          }
+        },
+        {
+          "name": "Delete Payment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}"]
+            },
+            "description": "Delete payment (automatically updates invoice status)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recurring Invoice Management",
+      "item": [
+        {
+          "name": "Get Recurring Invoice Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "stats"]
+            },
+            "description": "Get overview statistics of recurring invoices"
+          }
+        },
+        {
+          "name": "Get Due Recurring Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/due",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "due"]
+            },
+            "description": "Get recurring invoices due for processing"
+          }
+        },
+        {
+          "name": "Get All Recurring Invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.length > 0) {",
+                  "        pm.collectionVariables.set('recurringInvoiceId', response.data[0].id);",
+                  "        console.log('Recurring Invoice ID set:', response.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get all recurring invoices and automatically set first recurring invoice ID"
+          }
+        },
+        {
+          "name": "Create Monthly Recurring Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('recurringInvoiceId', response.data.id);",
+                  "    console.log('Recurring Invoice ID set:', response.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Monthly Software License\",\n  \"customerId\": \"{{customerId}}\",\n  \"frequency\": \"MONTHLY\",\n  \"intervalCount\": 1,\n  \"startDate\": \"2024-02-01T00:00:00.000Z\",\n  \"endDate\": \"2024-12-31T23:59:59.999Z\",\n  \"items\": [\n    {\n      \"productName\": \"Software License - Premium\",\n      \"description\": \"Monthly premium software license\",\n      \"quantity\": 1,\n      \"rate\": 25000.00,\n      \"taxRate\": 18.0\n    },\n    {\n      \"productName\": \"Support Services\",\n      \"description\": \"Monthly technical support\",\n      \"quantity\": 1,\n      \"rate\": 5000.00,\n      \"taxRate\": 18.0\n    }\n  ],\n  \"discountAmount\": 2000.00,\n  \"notes\": \"Monthly recurring billing for software license and support\",\n  \"terms\": \"Payment due within 15 days of invoice generation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices"]
+            },
+            "description": "Create monthly recurring invoice and automatically set recurring invoice ID"
+          }
+        },
+        {
+          "name": "Create Quarterly Recurring Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Quarterly Business Consultation\",\n  \"customerId\": \"{{customerId}}\",\n  \"frequency\": \"QUARTERLY\",\n  \"intervalCount\": 1,\n  \"startDate\": \"2024-01-01T00:00:00.000Z\",\n  \"items\": [\n    {\n      \"productName\": \"Business Consultation\",\n      \"description\": \"Quarterly business strategy consultation\",\n      \"quantity\": 3,\n      \"rate\": 15000.00,\n      \"taxRate\": 18.0\n    }\n  ],\n  \"notes\": \"Quarterly consultation services\",\n  \"terms\": \"Payment due within 30 days\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices"]
+            },
+            "description": "Create quarterly recurring invoice"
+          }
+        },
+        {
+          "name": "Get Recurring Invoice by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/{{recurringInvoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "{{recurringInvoiceId}}"]
+            },
+            "description": "Get recurring invoice details with items and schedule"
+          }
+        },
+        {
+          "name": "Update Recurring Invoice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Monthly Software License\",\n  \"discountAmount\": 3000.00,\n  \"notes\": \"Updated recurring invoice with new discount\",\n  \"terms\": \"Payment due within 10 days of invoice generation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/{{recurringInvoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "{{recurringInvoiceId}}"]
+            },
+            "description": "Update recurring invoice template"
+          }
+        },
+        {
+          "name": "Process Recurring Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"generateInvoiceDate\": \"2024-02-01T00:00:00.000Z\",\n  \"updateNextDate\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/{{recurringInvoiceId}}/process",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "{{recurringInvoiceId}}", "process"]
+            },
+            "description": "Generate actual invoice from recurring template"
+          }
+        },
+        {
+          "name": "Deactivate Recurring Invoice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/{{recurringInvoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "{{recurringInvoiceId}}"]
+            },
+            "description": "Deactivate recurring invoice template"
+          }
+        },
+        {
+          "name": "Delete Recurring Invoice",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recurring-invoices/{{recurringInvoiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recurring-invoices", "{{recurringInvoiceId}}"]
+            },
+            "description": "Delete recurring invoice template"
+          }
+        }
+      ]
+    }
+  ]
+}

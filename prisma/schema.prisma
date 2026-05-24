@@ -1,0 +1,435 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== USER MANAGEMENT ==============
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  phone       String?
+  role        UserRole @default(USER)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastLoginAt DateTime?
+
+  // Business Info
+  businessName     String?
+  gstNumber        String?
+  panNumber        String?
+  businessAddress  String?
+  businessCity     String?
+  businessState    String?
+  businessPincode  String?
+  businessCountry  String? @default("India")
+
+  // Relations
+  customers        Customer[]
+  products         Product[]
+  invoices         Invoice[]
+  payments         Payment[]
+  recurringInvoices RecurringInvoice[]
+  activityLogs     ActivityLog[]
+  subscriptionPlans SubscriptionPlan[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+// ============== CUSTOMERS ==============
+model Customer {
+  id              String   @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  gstNumber       String?
+  panNumber       String?
+  
+  // Address
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  country         String? @default("India")
+  
+  // Business Info
+  contactPerson   String?
+  website         String?
+  notes           String?
+  
+  // Status
+  isActive        Boolean  @default(true)
+  creditLimit     Float?   @default(0)
+  paymentTerms    Int?     @default(30) // days
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  invoices        Invoice[]
+  payments        Payment[]
+  recurringInvoices RecurringInvoice[]
+  subscriptions   Subscription[]
+
+  @@map("customers")
+}
+
+// ============== PRODUCTS/SERVICES ==============
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  type            ProductType @default(PRODUCT)
+  
+  // Pricing
+  price           Float
+  unit            String?     @default("Nos")
+  
+  // Tax Info
+  hsnCode         String?
+  sacCode         String?
+  taxRate         Float       @default(18.0)
+  
+  // Stock (for products)
+  stockQuantity   Int?        @default(0)
+  lowStockAlert   Int?        @default(10)
+  
+  // Category
+  category        String?
+  
+  // Status
+  isActive        Boolean     @default(true)
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  invoiceItems    InvoiceItem[]
+
+  @@map("products")
+}
+
+enum ProductType {
+  PRODUCT
+  SERVICE
+}
+
+// ============== INVOICES ==============
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  
+  // Dates
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime
+  
+  // Amounts
+  subtotal        Float
+  taxAmount       Float
+  discountAmount  Float         @default(0)
+  totalAmount     Float
+  paidAmount      Float         @default(0)
+  balanceAmount   Float
+  
+  // Tax Details
+  cgstAmount      Float         @default(0)
+  sgstAmount      Float         @default(0)
+  igstAmount      Float         @default(0)
+  
+  // Status
+  status          InvoiceStatus @default(DRAFT)
+  
+  // Notes
+  notes           String?
+  terms           String?
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  sentAt          DateTime?
+  
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  customerId      String
+  items           InvoiceItem[]
+  payments        Payment[]
+
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIAL_PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id              String   @id @default(cuid())
+  quantity        Float
+  rate            Float
+  amount          Float
+  taxRate         Float
+  taxAmount       Float
+  description     String?
+  
+  // Relations
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  productId       String
+
+  @@map("invoice_items")
+}
+
+// ============== RECURRING INVOICES (NEW) ==============
+model RecurringInvoice {
+  id              String              @id @default(cuid())
+  name            String
+  
+  // Template Data
+  subtotal        Float
+  taxAmount       Float
+  discountAmount  Float               @default(0)
+  totalAmount     Float
+  
+  // Recurrence
+  frequency       RecurrenceFrequency
+  intervalCount   Int                 @default(1)
+  startDate       DateTime
+  endDate         DateTime?
+  nextInvoiceDate DateTime
+  
+  // Status
+  isActive        Boolean             @default(true)
+  
+  // Notes
+  notes           String?
+  terms           String?
+  
+  // Timestamps
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relations
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  customer        Customer            @relation(fields: [customerId], references: [id])
+  customerId      String
+  items           RecurringInvoiceItem[]
+
+  @@map("recurring_invoices")
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecurringInvoiceItem {
+  id                  String           @id @default(cuid())
+  quantity            Float
+  rate                Float
+  amount              Float
+  taxRate             Float
+  taxAmount           Float
+  description         String?
+  productName         String
+  
+  // Relations
+  recurringInvoice    RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  recurringInvoiceId  String
+
+  @@map("recurring_invoice_items")
+}
+
+// ============== PAYMENTS ==============
+model Payment {
+  id              String        @id @default(cuid())
+  amount          Float
+  paymentDate     DateTime      @default(now())
+  paymentMethod   PaymentMethod
+  
+  // Details
+  reference       String?
+  notes           String?
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  customerId      String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  invoiceId       String
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  CARD
+  OTHER
+}
+
+// ============== ACTIVITY LOG ==============
+model ActivityLog {
+  id          String       @id @default(cuid())
+  action      String
+  entity      String
+  entityId    String?
+  details     String?
+  ipAddress   String?
+  userAgent   String?
+  
+  // Timestamps
+  createdAt   DateTime     @default(now())
+  
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@map("activity_logs")
+}
+
+// ============== SUBSCRIPTION PLAN ==============
+model SubscriptionPlan {
+  id                    String           @id @default(cuid())
+  name                  String
+  description           String?          @db.Text
+  type                  PlanType
+  billingCycle          BillingCycle
+  price                 Decimal          @db.Decimal(10, 2)
+  currency              String           @default("INR") @db.VarChar(3)
+  trialDays             Int              @default(0)
+  
+  // Features (stored as JSON)
+  features              Json?
+  
+  // Pricing & Discounts
+  setupFee              Decimal          @default(0) @db.Decimal(10, 2)
+  discountPercentage    Decimal          @default(0) @db.Decimal(5, 2)
+  taxRate               Decimal          @default(18) @db.Decimal(5, 2)
+  
+  // Status
+  isActive              Boolean          @default(true)
+  
+  // Timestamps
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  // Relations
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String
+  subscriptions         Subscription[]
+
+  @@unique([userId, name])
+  @@map("subscription_plans")
+}
+
+// ============== SUBSCRIPTION ==============
+model Subscription {
+  id                      String            @id @default(cuid())
+  status                  SubscriptionStatus
+  
+  // Dates
+  startDate               DateTime
+  endDate                 DateTime?
+  trialEndDate            DateTime?
+  currentPeriodStart      DateTime
+  currentPeriodEnd        DateTime
+  cancelledAt             DateTime?
+  
+  // Pricing
+  customPrice             Decimal?          @db.Decimal(10, 2)
+  customDiscountPercentage Decimal?         @db.Decimal(5, 2)
+  
+  // Settings
+  autoRenew               Boolean           @default(true)
+  pauseSubscription       Boolean           @default(false)
+  pauseReason             String?
+  cancellationReason      CancellationReason?
+  
+  // Notes
+  notes                   String?           @db.Text
+  
+  // Timestamps
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  
+  // Relations
+  customer                Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId              String
+  plan                    SubscriptionPlan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planId                  String
+  invoices                Invoice[]
+
+  @@map("subscriptions")
+}
+
+// ============== ENUMS ==============
+enum PlanType {
+  BASIC
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+  CUSTOM
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum CancellationReason {
+  CUSTOMER_REQUEST
+  PAYMENT_FAILED
+  BUSINESS_CLOSURE
+  UPGRADE
+  DOWNGRADE
+  OTHER
+}
